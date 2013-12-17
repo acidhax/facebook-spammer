@@ -13,7 +13,7 @@ var app = express();
 var async = require('async');
 var passport = require('passport')
 	, FacebookStrategy = require('passport-facebook').Strategy;
-var facebookChat = require("facebook-chat"),
+var facebookChat = require("facebook-chat");
 var facebookAppId = '';
 var facebookSecretKey = '';
 var friendListUrl = "https://graph.facebook.com/me/friends?fields=id,name,username&access_token=";
