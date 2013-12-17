@@ -10,6 +10,9 @@
     "ejs": "*",
     "passport": "~0.1.17",
     "passport-oauth": "~1.0.0",
-    "passport-facebook": "~1.0.2"
+    "passport-facebook": "~1.0.2",
+    "request": "~2.30.0",
+    "async": "~0.2.9",
+    "facebook-chat": "0.0.3"
   }
 }
