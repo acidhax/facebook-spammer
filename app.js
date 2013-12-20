@@ -84,36 +84,35 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
-	app.use(express.cookieParser());
-	app.use(express.bodyParser());
-	app.use(passport.initialize());
-	app.use(app.router);
-	app.use(express.session({
-		secret: sessionSecret,
-		store: sessionStore,
-		cookie: {
-		  path: '/',
-		  httpOnly: false,
-		  maxAge: process.env.sessionMaxAge?parseInt(process.env.sessionMaxAge, 10):(1000 * 60 * 60 * 24 * 60),
-		  domain: process.env.cookieDomain || 'matbee.com'
-		},
-		key: sessionKey
-	}));
-	app.use(passport.session());
-	passport.use(new FacebookStrategy({
-		clientID: process.env.FACEBOOK_APP_ID || facebookAppId,
-		clientSecret: process.env.FACEBOOK_APP_SECRET || facebookSecretKey,
-		callbackURL: "http://hp.discome.com:3000/auth/facebook/callback"
+app.use(express.cookieParser());
+app.use(express.bodyParser());
+app.use(passport.initialize());
+app.use(express.session({
+	secret: sessionSecret,
+	store: sessionStore,
+	cookie: {
+	  path: '/',
+	  httpOnly: false,
+	  maxAge: process.env.sessionMaxAge?parseInt(process.env.sessionMaxAge, 10):(1000 * 60 * 60 * 24 * 60),
+	  domain: process.env.cookieDomain || 'hp.discome.com'
 	},
-	function(accessToken, refreshToken, profile, done) {
-		getFacebookFriends(accessToken, function (err, friends) {
-			usersFriends[profile.id] = friends;
-			console.log("itsgotime();", friends);
-			// itsgotime(profile, friends, "hey.. do you or anyone you know watch like TV or movies online together? Like.. watch the same thing and talk over skype/phone or text?", accessToken);
-			done(null, profile);
-		});
-	}
-));
+	key: sessionKey
+}));
+// app.use(passport.session());
+passport.use(new FacebookStrategy({
+	clientID: process.env.FACEBOOK_APP_ID || facebookAppId,
+	clientSecret: process.env.FACEBOOK_APP_SECRET || facebookSecretKey,
+	callbackURL: "http://hp.discome.com:3000/auth/facebook/callback"
+},
+function(accessToken, refreshToken, profile, done) {
+	getFacebookFriends(accessToken, function (err, friends) {
+		usersFriends[profile.id] = friends;
+		console.log("itsgotime();", friends);
+		// itsgotime(profile, friends, "hey.. do you or anyone you know watch like TV or movies online together? Like.. watch the same thing and talk over skype/phone or text?", accessToken);
+		done(null, profile);
+	});
+}));
+app.use(app.router);
 
 var users = {};
 var usersAccessTokens = {};
