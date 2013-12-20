@@ -13,6 +13,10 @@
     "passport-facebook": "~1.0.2",
     "request": "~2.30.0",
     "async": "~0.2.9",
-    "facebook-chat": "0.0.3"
+    "facebook-chat": "0.0.3",
+    "socket.io": "~0.9.16",
+    "redis": "~0.9.2",
+    "connect-redis-pubsub": "~2.0.6",
+    "redis-sub": "~1.0.0"
   }
 }

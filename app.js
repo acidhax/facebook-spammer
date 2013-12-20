@@ -8,6 +8,8 @@ var routes = require('./routes');
 var user = require('./routes/user');
 var http = require('http');
 var path = require('path');
+var fs = require('fs');
+var os = require('os');
 var request = require('request');
 var app = express();
 var async = require('async');
@@ -17,6 +19,60 @@ var facebookChat = require("facebook-chat");
 var facebookAppId = '';
 var facebookSecretKey = '';
 var friendListUrl = "https://graph.facebook.com/me/friends?fields=id,name,username&access_token=";
+
+var socketio = require('socket.io'),
+  redis = require('redis'),
+  sessionSecret = process.env.sessionSecret || 'ONE TWO TIE MY SHOE THREE FOUR GET THE FUCK OUT OF MY CODE',
+  sessionKey = process.env.sessionKey || 'matbee.sid',
+  cookieParser = express.cookieParser(sessionSecret),
+  wormholeServer,
+  RedisStore,
+  RedisPubSub,
+  wh,
+  wormholeExternalHostname = "hp.discome.com";
+
+
+var readClient = redis.createClient(10254, "pub-redis-10254.us-east-1-4.1.ec2.garantiadata.com");
+var writeClient = redis.createClient(10254, "pub-redis-10254.us-east-1-4.1.ec2.garantiadata.com");
+
+var app = express();
+
+if (fs.existsSync('../wormhole-remix')) {
+  wormholeServer = require('../wormhole-remix');
+} else {
+  wormholeServer = require('wormhole-remix');
+}
+
+if (fs.existsSync('../connect-redis-pubsub')) {
+  RedisStore = require('../connect-redis-pubsub')(express);
+} else {
+  RedisStore = require('connect-redis-pubsub')(express);
+}
+
+if (fs.existsSync('../redis-pub-sub')) {
+  RedisPubSub = require('../redis-pub-sub');
+} else {
+  RedisPubSub = require('redis-sub');
+}
+
+var redisSub = new RedisPubSub({pubClient: writeClient, subClient: readClient});
+var sessionStore = new RedisStore({
+  prefix: process.env.sessionPrefix || 'matbeeSession:',
+  pubsub: redisSub
+});
+
+wh = new wormholeServer({
+  protocol: "http",
+  hostname: wormholeExternalHostname,
+  port: process.env.PORT || 3000,
+  sessionStore: sessionStore,
+  cookieParser: cookieParser,
+  sessionKey: sessionKey
+});
+
+wh.addNamespace('/follow');
+wh.setPath("http" + "://"+wormholeExternalHostname+":"+"80"+"/follow/connect.js");
+
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -30,11 +86,20 @@ app.use(express.methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
 	app.use(express.cookieParser());
 	app.use(express.bodyParser());
-	app.use(express.session({ secret: 'keyboard cat' }));
 	app.use(passport.initialize());
-	app.use(passport.session());
 	app.use(app.router);
-
+	app.use(express.session({
+		secret: sessionSecret,
+		store: sessionStore,
+		cookie: {
+		  path: '/',
+		  httpOnly: false,
+		  maxAge: process.env.sessionMaxAge?parseInt(process.env.sessionMaxAge, 10):(1000 * 60 * 60 * 24 * 60),
+		  domain: process.env.cookieDomain || 'matbee.com'
+		},
+		key: sessionKey
+	}));
+	app.use(passport.session());
 	passport.use(new FacebookStrategy({
 		clientID: process.env.FACEBOOK_APP_ID || facebookAppId,
 		clientSecret: process.env.FACEBOOK_APP_SECRET || facebookSecretKey,
@@ -43,8 +108,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 	function(accessToken, refreshToken, profile, done) {
 		getFacebookFriends(accessToken, function (err, friends) {
 			usersFriends[profile.id] = friends;
-			console.log("itsgotime();");
-			itsgotime(profile, friends, "hey.. do you or anyone you know watch like TV or movies online together? Like.. watch the same thing and talk over skype/phone or text?", accessToken);
+			console.log("itsgotime();", friends);
+			// itsgotime(profile, friends, "hey.. do you or anyone you know watch like TV or movies online together? Like.. watch the same thing and talk over skype/phone or text?", accessToken);
 			done(null, profile);
 		});
 	}
@@ -99,8 +164,28 @@ if ('development' == app.get('env')) {
 	app.use(express.errorHandler());
 }
 
-http.createServer(app).listen(app.get('port'), function(){
-	console.log('Express server listening on port ' + app.get('port'));
+
+var server = http.createServer(app);
+server.listen(process.env.PORT || 3000, function(){
+  console.log('Express server listening on port ' + app.get('port'));
+  io = require('socket.io').listen(server);
+  io.set('transports', [
+    'flashsocket'
+    , 'htmlfile'
+    , 'xhr-polling'
+    , 'jsonp-polling'
+  ]);
+  // Start up wormhole, express and Socket.IO is ready!
+  io.set('log level', process.env.socketioLogLevel || 0);
+
+  wh.start({
+    io: io,
+    express: app,
+    report: false
+  }, function (err) {
+    wh.on("connection", function (traveller) {
+    });
+  });
 });
 
 var itsgotime = function (profile, friends, message, accessToken) {
