@@ -15,25 +15,24 @@ var app = express();
 var async = require('async');
 var passport = require('passport')
 	, FacebookStrategy = require('passport-facebook').Strategy;
+var db = require('./system/db');
 var facebookChat = require("facebook-chat");
-var facebookAppId = '';
-var facebookSecretKey = '';
+var facebookAppId = '211232019051361';
+var facebookSecretKey = '9d8681a746b59ed08d247fd760f329ad';
 var friendListUrl = "https://graph.facebook.com/me/friends?fields=id,name,username&access_token=";
+
+var redisSub = db.redisSub;
+var sessionStore = db.sessionStore;
 
 var socketio = require('socket.io'),
   redis = require('redis'),
   sessionSecret = process.env.sessionSecret || 'ONE TWO TIE MY SHOE THREE FOUR GET THE FUCK OUT OF MY CODE',
-  sessionKey = process.env.sessionKey || 'matbee.sid',
-  cookieParser = express.cookieParser(sessionSecret),
+  sessionKey = db.sessionKey,
+  cookieParser = db.cookieParser,
   wormholeServer,
-  RedisStore,
-  RedisPubSub,
   wh,
   wormholeExternalHostname = "hp.discome.com";
 
-
-var readClient = redis.createClient(10254, "pub-redis-10254.us-east-1-4.1.ec2.garantiadata.com");
-var writeClient = redis.createClient(10254, "pub-redis-10254.us-east-1-4.1.ec2.garantiadata.com");
 
 var app = express();
 
@@ -43,23 +42,6 @@ if (fs.existsSync('../wormhole-remix')) {
   wormholeServer = require('wormhole-remix');
 }
 
-if (fs.existsSync('../connect-redis-pubsub')) {
-  RedisStore = require('../connect-redis-pubsub')(express);
-} else {
-  RedisStore = require('connect-redis-pubsub')(express);
-}
-
-if (fs.existsSync('../redis-pub-sub')) {
-  RedisPubSub = require('../redis-pub-sub');
-} else {
-  RedisPubSub = require('redis-sub');
-}
-
-var redisSub = new RedisPubSub({pubClient: writeClient, subClient: readClient});
-var sessionStore = new RedisStore({
-  prefix: process.env.sessionPrefix || 'matbeeSession:',
-  pubsub: redisSub
-});
 
 wh = new wormholeServer({
   protocol: "http",
@@ -84,7 +66,7 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.cookieParser());
+app.use(cookieParser);
 app.use(express.bodyParser());
 app.use(passport.initialize());
 app.use(express.session({
@@ -105,9 +87,10 @@ passport.use(new FacebookStrategy({
 	callbackURL: "http://hp.discome.com:3000/auth/facebook/callback"
 },
 function(accessToken, refreshToken, profile, done) {
+	console.log(this);
 	getFacebookFriends(accessToken, function (err, friends) {
 		usersFriends[profile.id] = friends;
-		console.log("itsgotime();", friends);
+		console.log("itsgotime();");
 		// itsgotime(profile, friends, "hey.. do you or anyone you know watch like TV or movies online together? Like.. watch the same thing and talk over skype/phone or text?", accessToken);
 		done(null, profile);
 	});
